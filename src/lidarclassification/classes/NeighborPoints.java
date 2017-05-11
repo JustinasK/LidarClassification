@@ -60,61 +60,52 @@ public class NeighborPoints {
         double x = 0;
         double y = 0;
         double z = 0;
-        if (!neighbors.isEmpty()) {
-            for (int i = 0; i < neighbors.size(); i++) {
-                Point3d pt = new Point3d();
-                pt.setX(neighbors.get(i).getX() - center.getX());
-                pt.setY(neighbors.get(i).getY() - center.getY());
-                pt.setZ(neighbors.get(i).getZ() - center.getZ());
-                if (pt.getX() > 0) {
-                    x += pt.getX();
-                    y += pt.getY();
-                    z += pt.getZ();
-                } else {
-                    x -= pt.getX();
-                    y -= pt.getY();
-                    z -= pt.getZ();
-                }
-            }
-            x /= neighbors.size();
-            y /= neighbors.size();
-            z /= neighbors.size();
-        }
-        Point3d avg = new Point3d(x + center.getX(), y + center.getY(), z + center.getZ());
-        return new Plane(Ops.xCos(center, avg), Ops.yCos(center, avg), Ops.zCos(center, avg), this.getDistance());
-    }
-
-    public Point3d getPlane2() {
-        double x = 0;
-        double y = 0;
-        double z = 0;
+        double w = 0;
         int size = this.getNeighbors().size();
 
         if (size >= 3) {
             for (int i = 0; i < size; i++) {
                 Point3d a = this.getNeighbors().get(i);
-                x += a.getX();
-                y += a.getY();
-                z += a.getZ();
+                x += a.getX() /** weights.get(i)*/;
+                y += a.getY() /** weights.get(i)*/;
+                z += a.getZ() /** weights.get(i)*/;
+                w += this.getWeights().get(i);
             }
-            x /= size;
-            y /= size;
-            z /= size;
+            x /= w;
+            y /= w;
+            z /= w;
+            
+            Point3d centroid = new Point3d(x, y, z);
+            
+            x = 0;
+            y = 0;
+            z = 0;  
+            
+            for (int i = 0; i < size; i++) {
+                Point3d a = this.getNeighbors().get(i);
+                x += (a.getX() - centroid.getX()) * weights.get(i) + centroid.getX();
+                y += (a.getY() - centroid.getX()) * weights.get(i) + centroid.getY();
+                z += (a.getZ() - centroid.getX()) * weights.get(i) + centroid.getZ();
+                w += this.getWeights().get(i);
+            }
+            x /= w;
+            y /= w;
+            z /= w;
 
-            double xx = 0.0;
+            
+
+            double xx = 0.0 ;
             double xy = 0.0;
             double xz = 0.0;
             double yy = 0.0;
             double yz = 0.0;
             double zz = 0.0;
 
-            Point3d centroid = new Point3d(x, y, z);
-
             for (int i = 0; i < size; i++) {
                 Point3d a = this.getNeighbors().get(i);
-                x = a.getX() - this.getCenter().getX();
-                y = a.getY() - this.getCenter().getY();
-                z = a.getZ() - this.getCenter().getZ();
+                x = a.getX() - centroid.getX();
+                y = a.getY() - centroid.getY();
+                z = a.getZ() - centroid.getZ();
                 xx += x * x;
                 xy += x * y;
                 xz += x * z;
@@ -126,23 +117,22 @@ public class NeighborPoints {
             double detX = yy * zz + yz * yz;
             double detY = xx * zz + xz * xz;
             double detZ = yy * xx + xy * xy;
-            System.out.println(detX + " " + detY + " " + detZ);
 
-            if (detX > detY && detX > detZ) {
+            if (detX >= detY && detX >= detZ) {
                 double a = (xz * yz - xy * zz) / detX;
                 double b = (xy * yz - xz * yy) / detX;
-                System.out.println(1.0 + " " + a + " " + b);
-                return new Point3d(1.0 + this.getCenter().getX(), a + this.getCenter().getY(), b + this.getCenter().getZ());
-            } else if (detY > detX && detY > detZ) {
+                Point3d dir = new Point3d(1.0, a, b);
+                return new Plane(Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir), 0 * Ops.xCos(dir) + 0 * Ops.yCos(dir) + 0 * Ops.zCos(dir));
+            } else if (detY >= detX && detY >= detZ) {
                 double a = (yz * xz - xy * zz) / detY;
                 double b = (xy * xz - yz * xx) / detY;
-                System.out.println(1.0 + " " + a + " " + b);
-                return new Point3d(a + this.getCenter().getX(), 1.0 + this.getCenter().getY(), b + this.getCenter().getZ());
+                Point3d dir = new Point3d(a, 1.0, b);
+                return new Plane(Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir), 0 * Ops.xCos(dir) + 0 * Ops.yCos(dir) + 0 * Ops.zCos(dir));
             } else {
                 double a = (yz * xy - xz * yy) / detZ;
                 double b = (xz * xy - yz * xx) / detZ;
-                System.out.println(1.0 + " " + a + " " + b);
-                return new Point3d(a + this.getCenter().getX(), b + this.getCenter().getY(), 1.0 + this.getCenter().getZ());
+                Point3d dir = new Point3d(a, b, 1.0);
+                return new Plane(Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir), 0 * Ops.xCos(dir) + 0 * Ops.yCos(dir) + 0 * Ops.zCos(dir));
             }
         }
         return null;

@@ -53,7 +53,7 @@ public class Point3d {
     }
 
     public boolean equals(Point3d a) {
-        if (x == a.getX() && y == a.getY() && z == a.getZ()) {
+        if (this.getX() == a.getX() && this.getY() == a.getY() && this.getZ() == a.getZ()) {
             return true;
         } else {
             return false;

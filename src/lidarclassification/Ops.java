@@ -22,11 +22,19 @@ public class Ops {
     }
 
     public static double distance2(Point3d a) {
-        return a.getX() * xCos(a) + a.getY() * yCos(a) + a.getZ() * zCos(a);
+        if (a.getX() == 0.0 && a.getY() == 0.0 && a.getZ() == 0.0) {
+            return 0.0;
+        } else {
+            return a.getX() * xCos(a) + a.getY() * yCos(a) + a.getZ() * zCos(a);
+        }
     }
 
     public static double distance2(Point3d a, Point3d b) {
-        return (b.getX() - a.getX()) * xCos(a, b) + (b.getY() - a.getY()) * yCos(a, b) + (b.getZ() - a.getZ()) * zCos(a, b);
+        if (a.equals(b)) {
+            return 0.0;
+        } else {
+            return (b.getX() - a.getX()) * xCos(a, b) + (b.getY() - a.getY()) * yCos(a, b) + (b.getZ() - a.getZ()) * zCos(a, b);
+        }
     }
 
     public static double xCos(Point3d a) {
