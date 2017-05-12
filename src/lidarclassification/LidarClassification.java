@@ -22,14 +22,14 @@ public class LidarClassification {
         Plane plane = neighborhood.getPlane();
         for (int i = 0; i < 10; i++) {
             getWeight(plane, neighborhood, accuracy);
-            Plane planeNew = neighborhood.getPlane();
-            System.out.println(plane.getVector().print() + " " + plane.getDistance());
+            Plane planeNew = neighborhood.getPlane();            
             if (Math.abs(planeNew.getX() - plane.getX() + planeNew.getY() - plane.getY() + planeNew.getZ() - plane.getZ()) > accuracy*0.0001) {
                 plane = planeNew;
             } else {
                 break;
             }
         }
+        System.out.println(plane.getVector().print() + " " + plane.getDistance());
         ArrayList<Point3d> result = new ArrayList<>();
         for (int i = 0; i < neighborhood.getNeighbors().size(); i++) {
             //System.out.print(neighborhood.getNeighbors().get(i).print() + " (" + dist(neighborhood.getNeighbors().get(i), plane, center) + ") / ");
