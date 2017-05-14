@@ -247,7 +247,7 @@ public class LidarClassification {
         ArrayList<Point> attributeList = findAttributes(pointList, neighborhoodList);
         
         for (int i = 0; i < attributeList.size(); i++) {
-            System.out.println(neighborhoodList.get(i).getPlane().getVector().print() + " -> " + attributeList.get(i).print());
+            System.out.println(neighborhoodList.get(i).getPlane().getVector().print() + " "+ neighborhoodList.get(i).getPlane().getDistance() + " -> " + attributeList.get(i).print());
         }
     }
 }
