@@ -6,7 +6,7 @@
 package lidarclassification;
 
 import java.util.ArrayList;
-import lidarclassification.classes.NeighborPoints;
+import lidarclassification.classes.Neighborhood;
 import lidarclassification.classes.Point3d;
 
 /**

@@ -14,14 +14,6 @@ import lidarclassification.classes.Point3d;
 public class Ops {
 
     public static double distance(Point3d a) {
-        return Math.sqrt(Math.pow(a.getX(), 2) + Math.pow(a.getY(), 2) + Math.pow(a.getZ(), 2));
-    }
-
-    public static double distance(Point3d a, Point3d b) {
-        return Math.sqrt(Math.pow(a.getX() - b.getX(), 2) + Math.pow(a.getY() - b.getY(), 2) + Math.pow(a.getZ() - b.getZ(), 2));
-    }
-
-    public static double distance2(Point3d a) {
         if (a.getX() == 0.0 && a.getY() == 0.0 && a.getZ() == 0.0) {
             return 0.0;
         } else {
@@ -29,7 +21,7 @@ public class Ops {
         }
     }
 
-    public static double distance2(Point3d a, Point3d b) {
+    public static double distance(Point3d a, Point3d b) {
         if (a.equals(b)) {
             return 0.0;
         } else {
