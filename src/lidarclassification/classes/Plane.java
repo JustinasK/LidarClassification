@@ -5,26 +5,26 @@
  */
 package lidarclassification.classes;
 
+import javafx.geometry.Point3D;
+
 /**
  *
  * @author JustinasK
  */
 public class Plane {
 
-    private Point3d vector = new Point3d();
+    private Point3D vector = null;
     private double distance = 0;
 
-    public void setVector(Point3d x) {
+    public void setVector(Point3D x) {
         vector = x;
     }
 
     public void setVector(double x, double y, double z) {
-        vector.setX(x);
-        vector.setY(y);
-        vector.setZ(z);
+        vector = new Point3D(x, y, z);
     }
 
-    public Point3d getVector() {
+    public Point3D getVector() {
         return vector;
     }
 
@@ -37,30 +37,16 @@ public class Plane {
     }
 
     public Plane(double a, double b, double c, double d) {
-        vector.setX(a);
-        vector.setY(b);
-        vector.setZ(c);
+        vector = new Point3D(a, b, c);
         distance = d;
-    }
-
-    public void setX(double x) {
-        vector.setX(x);
     }
 
     public double getX() {
         return vector.getX();
     }
 
-    public void setY(double y) {
-        vector.setY(y);
-    }
-
     public double getY() {
         return vector.getY();
-    }
-
-    public void setZ(double z) {
-        vector.setZ(z);
     }
 
     public double getZ() {

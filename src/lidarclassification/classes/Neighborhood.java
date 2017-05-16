@@ -6,7 +6,7 @@
 package lidarclassification.classes;
 
 import java.util.ArrayList;
-import lidarclassification.Ops;
+import javafx.geometry.Point3D;
 
 /**
  *
@@ -14,27 +14,27 @@ import lidarclassification.Ops;
  */
 public class Neighborhood {
 
-    private Point3d center = null;
-    private ArrayList<Point3d> neighbors = new ArrayList<>();
+    private Point3D center = null;
+    private ArrayList<Point3D> neighbors = new ArrayList<>();
     private Plane plane = null;
     
-    public Neighborhood(Point3d n) {
+    public Neighborhood(Point3D n) {
         center = n;
     }
 
-    public Point3d getCenter() {
+    public Point3D getCenter() {
         return center;
     }
 
-    public void setCenter(Point3d point) {
+    public void setCenter(Point3D point) {
         center = point;
     }
 
-    public ArrayList<Point3d> getNeighbors() {
+    public ArrayList<Point3D> getNeighbors() {
         return neighbors;
     }
 
-    public void setNeighbors(ArrayList<Point3d> list) {
+    public void setNeighbors(ArrayList<Point3D> list) {
         neighbors = list;
     }
     
