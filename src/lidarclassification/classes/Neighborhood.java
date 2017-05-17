@@ -21,6 +21,9 @@ public class Neighborhood {
     public Neighborhood(Point3D n) {
         center = n;
     }
+    
+    public Neighborhood() {
+    }
 
     public Point3D getCenter() {
         return center;

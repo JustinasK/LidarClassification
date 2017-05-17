@@ -5,8 +5,14 @@
  */
 package lidarclassification;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import lidarclassification.classes.Neighborhood;
 import java.util.ArrayList;
+import java.util.HashMap;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Point2D;
@@ -14,9 +20,6 @@ import javafx.geometry.Point3D;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.shape.Sphere;
-import javafx.scene.transform.Rotate;
-import javafx.scene.transform.Scale;
-import javafx.scene.transform.Translate;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
@@ -30,7 +33,6 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 import javafx.scene.Node;
-import javafx.scene.shape.Cylinder;
 
 /**
  *
@@ -211,15 +213,18 @@ public class LidarClassification extends Application {
 
     public Neighborhood findNeighborhood(Point3D center, ArrayList<Point3D> list, double distance, double accuracy) {
         Neighborhood neighborhood = findNeighborPoints(center, list, distance);
+        if (neighborhood.getNeighbors().size() < 3) {
+            return null;
+        }
         ArrayList weights = new ArrayList<>();
         for (int i = 0; i < neighborhood.getNeighbors().size(); i++) {
             weights.add(1.0);
         }
-        Plane plane = findPlane(neighborhood, weights);
+        Plane plane = findPlaneWithWeights(neighborhood, weights);
         neighborhood.setPlane(plane);
         for (int i = 0; i < 10; i++) {
             weights = findWeight(neighborhood, accuracy);
-            Plane planeNew = findPlane(neighborhood, weights);
+            Plane planeNew = findPlaneWithWeights(neighborhood, weights);
             if (Math.abs(planeNew.getX() - plane.getX() + planeNew.getY() - plane.getY() + planeNew.getZ() - plane.getZ()) > accuracy * 0.0001) {
                 plane = planeNew;
                 neighborhood.setPlane(plane);
@@ -249,7 +254,7 @@ public class LidarClassification extends Application {
         return result;
     }
 
-    public Plane findPlane(Neighborhood hood, ArrayList<Double> weights) {
+    public Plane findPlaneWithWeights(Neighborhood hood, ArrayList<Double> weights) {
         double x = 0;
         double y = 0;
         double z = 0;
@@ -336,6 +341,76 @@ public class LidarClassification extends Application {
         return null;
     }
 
+    public Plane findPlane(Neighborhood hood) {
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        double w = 0;
+        int size = hood.getNeighbors().size();
+
+        if (size >= 3) {
+            for (int i = 0; i < size; i++) {
+                Point3D a = hood.getNeighbors().get(i);
+                x += a.getX();
+                y += a.getY();
+                z += a.getZ();
+            }
+            x /= size;
+            y /= size;
+            z /= size;
+
+            Point3D centroid = new Point3D(x, y, z);
+
+            double xx = 0.0;
+            double xy = 0.0;
+            double xz = 0.0;
+            double yy = 0.0;
+            double yz = 0.0;
+            double zz = 0.0;
+
+            for (int i = 0; i < size; i++) {
+                Point3D a = hood.getNeighbors().get(i);
+                x = a.getX() - centroid.getX();
+                y = a.getY() - centroid.getY();
+                z = a.getZ() - centroid.getZ();
+                xx += x * x;
+                xy += x * y;
+                xz += x * z;
+                yy += y * y;
+                yz += y * z;
+                zz += z * z;
+            }
+
+            double detX = yy * zz + yz * yz;
+            double detY = xx * zz + xz * xz;
+            double detZ = yy * xx + xy * xy;
+
+            if (detX >= detY && detX >= detZ) {
+                double a = (xz * yz - xy * zz) / detX;
+                double b = (xy * yz - xz * yy) / detX;
+                Point3D dir = new Point3D(1.0, a, b);
+                return new Plane(
+                        Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir),
+                        centroid.getX() * Ops.xCos(dir) + centroid.getY() * Ops.yCos(dir) + centroid.getZ() * Ops.zCos(dir));
+            } else if (detY >= detX && detY >= detZ) {
+                double a = (yz * xz - xy * zz) / detY;
+                double b = (xy * xz - yz * xx) / detY;
+                Point3D dir = new Point3D(a, 1.0, b);
+                return new Plane(
+                        Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir),
+                        centroid.getX() * Ops.xCos(dir) + centroid.getY() * Ops.yCos(dir) + centroid.getZ() * Ops.zCos(dir));
+            } else {
+                double a = (yz * xy - xz * yy) / detZ;
+                double b = (xz * xy - yz * xx) / detZ;
+                Point3D dir = new Point3D(a, b, 1.0);
+                return new Plane(
+                        Ops.xCos(dir), Ops.yCos(dir), Ops.zCos(dir),
+                        centroid.getX() * Ops.xCos(dir) + centroid.getY() * Ops.yCos(dir) + centroid.getZ() * Ops.zCos(dir));
+            }
+        }
+        return null;
+    }
+
     public ArrayList<Double> findWeight(Neighborhood list, double accuracy) {
         ArrayList<Double> results = new ArrayList<>();
         Point3D center = list.getCenter();
@@ -359,14 +434,59 @@ public class LidarClassification extends Application {
         return attributeList;
     }
 
-    public Point2D findPeak(ArrayList<Point2D> pointList, double acc) {
-        double peakX = 0;
-        double peakY = 0;
-        for (int i = 0; i < pointList.get(0).getX(); i += acc) {
-            for (int j = 0; j < pointList.get(0).getY(); j += acc) {
+    public HashMap<Point2D, ArrayList<Neighborhood>> setAccumulatorArray(ArrayList<Point2D> attributeList, ArrayList<Neighborhood> neighborhoodList, double acc, double maxDist) {
+        HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray = new HashMap<>();
+
+        for (int k = 0; k < attributeList.size(); k++) {
+            double pointX = attributeList.get(k).getX();
+            double pointY = attributeList.get(k).getY();
+            for (double i = Math.floor(pointX); i <= Math.ceil(pointX); i = i + acc) {
+                if (pointX >= i && pointX < i + acc) {
+                    for (double j = Math.floor(pointY); j < Math.ceil(pointY); j = j + acc) {
+                        if (pointY >= j && pointY < j + acc) {
+                            Point2D currentPoint = new Point2D(i, j);
+                            if (!accumulatorArray.containsKey(currentPoint)) {
+                                accumulatorArray.put(currentPoint, new ArrayList<>());
+                                accumulatorArray.get(currentPoint).add(neighborhoodList.get(k));
+                            } else {
+                                accumulatorArray.get(currentPoint).add(neighborhoodList.get(k));
+                            }
+                        }
+                    }
+                }
             }
         }
-        return new Point2D(peakX, peakY);
+        return accumulatorArray;
+    }
+
+    public HashMap.Entry<Point2D, ArrayList<Neighborhood>> findTopPeak(HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray) {
+        int count = 0;
+        HashMap.Entry<Point2D, ArrayList<Neighborhood>> topPeak = null;
+        for (HashMap.Entry<Point2D, ArrayList<Neighborhood>> entry : accumulatorArray.entrySet()) {
+            if (entry.getValue().size() > count) {
+                count = entry.getValue().size();
+                topPeak = entry;
+            }
+        }
+        return topPeak;
+    }
+
+    public boolean coPlanarityCheck(ArrayList<Neighborhood> neighborhoodList, double accuracy) {
+        Neighborhood neighborhood = new Neighborhood();
+        for (int i = 0; i < neighborhoodList.size(); i++) {
+            neighborhood.getNeighbors().addAll(neighborhoodList.get(i).getNeighbors());
+        }
+        Plane plane = findPlane(neighborhood);
+        double rms = 0;
+
+        for (int i = 0; i < neighborhood.getNeighbors().size(); i++) {
+            rms += Math.pow(dist(neighborhood.getNeighbors().get(i), plane), 2);
+        }
+        rms /= neighborhood.getNeighbors().size();
+        rms /= Math.sqrt(rms);
+        System.out.println(rms);
+
+        return rms <= accuracy;
     }
 
     private double dist(Point3D point, Plane plane) {
@@ -413,28 +533,35 @@ public class LidarClassification extends Application {
         return new Point3D(maxX, maxY, maxZ);
     }
 
-    public ArrayList<Point3D> findPoints() {
-        double distance = 4.0;
-        double accuracy = 0.01;
+    private ArrayList<Point3D> readPoints(String path) throws FileNotFoundException, IOException {
+        File file = new File(path);
+        BufferedReader fr = new BufferedReader(new FileReader(file));
+        ArrayList<Point3D> array = new ArrayList<>();
+        String text = null;
+        while ((text = fr.readLine()) != null) {
+            String[] nums = text.split(" ");
+            double x = Double.parseDouble(nums[0]);
+            double y = Double.parseDouble(nums[1]);
+            double z = Double.parseDouble(nums[2]);
+            array.add(new Point3D(x, y, z));
+        }
+        return array;
+    }
 
-        ArrayList<Point3D> pointList = new ArrayList<>();
-        pointList.add(new Point3D(1, 1, 0));
-        pointList.add(new Point3D(2, 2, 0));
-        pointList.add(new Point3D(2, 2, 3));
-        pointList.add(new Point3D(3, 3.3, 0));
-        pointList.add(new Point3D(2, 2.5, 3));
-        pointList.add(new Point3D(1, 3, 1.5));
+    public ArrayList<Point3D> findPoints(String path) throws FileNotFoundException, IOException {
+        double distance = 0.5;
+        double accuracy = 0.0001;
 
+        ArrayList<Point3D> pointList = readPoints(path);
         ArrayList<Neighborhood> neighborhoodList = new ArrayList<>();
 
         for (int i = 0; i < pointList.size(); i++) {
             Neighborhood neighborhood = findNeighborhood(pointList.get(i), pointList, distance, accuracy);
-            neighborhoodList.add(neighborhood);
-            /*System.out.print(pointList.get(i).print() + " -> ");
-            for (int j = 0; j < neighborhood.getNeighbors().size(); j++) {
-            System.out.print(neighborhood.getNeighbors().get(j).print() + " / ");
+            if (neighborhood != null) {
+                neighborhoodList.add(neighborhood);
             }
-        System.out.println();*/        }
+            System.out.println(i + ") " + pointList.get(i).toString() + " -> ");
+        }
 
         Point3D max = getMax3DPoint(pointList);
         Point3D min = getMin3DPoint(pointList);
@@ -451,6 +578,27 @@ public class LidarClassification extends Application {
         for (int i = 0; i < attributeList.size(); i++) {
             System.out.println(neighborhoodList.get(i).getPlane().getVector().toString() + " " + neighborhoodList.get(i).getPlane().getDistance() + " -> " + attributeList.get(i).toString());
         }
+        HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray = setAccumulatorArray(attributeList, neighborhoodList, accuracy, 2 * Ops.distance(min, max) / 3);
+        accumulatorArray.forEach((k, v) -> {
+            System.out.println("key: " + k.toString() + " value:" + v.toString());
+        });
+
+        HashMap.Entry<Point2D, ArrayList<Neighborhood>> peak = findTopPeak(accumulatorArray);
+        System.out.println(peak.toString());
+
+        if (coPlanarityCheck(peak.getValue(), accuracy)) {
+            ArrayList<Neighborhood> neighboringCells = new ArrayList<>();
+            for (HashMap.Entry<Point2D, ArrayList<Neighborhood>> entry : accumulatorArray.entrySet()) {
+                if (entry.getKey().getX() >= peak.getKey().getX() - accuracy
+                        && entry.getKey().getX() >= peak.getKey().getX() - accuracy
+                        && entry.getKey().getX() <= peak.getKey().getX() + accuracy
+                        && entry.getKey().getY() <= peak.getKey().getY() + accuracy
+                        && !entry.getKey().equals(peak.getKey())) {
+                    neighboringCells.addAll(entry.getValue());
+                }
+            }
+        }
+
         return pointList;
     }
 
@@ -473,8 +621,11 @@ public class LidarClassification extends Application {
         camera.setNearClip(0.1);
         camera.setFarClip(10000.0);
         camera.setTranslateZ(-cameraDistance);
-        cameraXform.ry.setAngle(320.0);
-        cameraXform.rx.setAngle(40);
+        cameraXform.setTranslateX(-17.5);
+        cameraXform.setTranslateY(-20);
+        cameraXform.rz.setAngle(0);
+        cameraXform.ry.setAngle(0);
+        cameraXform.rx.setAngle(115);
     }
 
     private void buildAxes() {
@@ -502,25 +653,25 @@ public class LidarClassification extends Application {
         axisGroup.getChildren().addAll(xAxis, yAxis, zAxis);
         world.getChildren().addAll(axisGroup);
     }
-    
-    private void buildPoints(){        
+
+    private void buildPoints() throws FileNotFoundException, IOException {
         PhongMaterial black = new PhongMaterial();
         black.setDiffuseColor(Color.BLACK);
-        black.setSpecularColor(Color.BLACK);  
-        ArrayList<Point3D> pointList = findPoints();
+        black.setSpecularColor(Color.BLACK);
+        ArrayList<Point3D> pointList = findPoints("C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test2-1.txt");
 
         for (int i = 0; i < pointList.size(); i++) {
-            Sphere sphere = new Sphere(0.02);
+            Sphere sphere = new Sphere(0.01);
             sphere.setMaterial(black);
             sphere.setTranslateX(pointList.get(i).getX());
             sphere.setTranslateY(pointList.get(i).getY());
             sphere.setTranslateZ(pointList.get(i).getZ());
             world.getChildren().add(sphere);
-        }   
+        }
     }
 
     @Override
-    public void start(Stage primaryStage) {
+    public void start(Stage primaryStage) throws FileNotFoundException, IOException {
         System.out.println("start");
         buildScene();
         buildCamera();
