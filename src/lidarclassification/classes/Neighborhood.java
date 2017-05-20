@@ -14,23 +14,11 @@ import javafx.geometry.Point3D;
  */
 public class Neighborhood {
 
-    private Point3D center = null;
     private ArrayList<Point3D> neighbors = new ArrayList<>();
     private Plane plane = null;
     
-    public Neighborhood(Point3D n) {
-        center = n;
-    }
     
     public Neighborhood() {
-    }
-
-    public Point3D getCenter() {
-        return center;
-    }
-
-    public void setCenter(Point3D point) {
-        center = point;
     }
 
     public ArrayList<Point3D> getNeighbors() {
