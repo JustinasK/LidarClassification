@@ -20,6 +20,7 @@ import javafx.geometry.Point2D;
 import javafx.geometry.Point3D;
 import lidarclassification.classes.Neighborhood;
 import lidarclassification.classes.Plane;
+import lidarclassification.classes.TopPeak;
 
 /**
  *
@@ -28,6 +29,7 @@ import lidarclassification.classes.Plane;
 public class Segmentation {
 
     public static Neighborhood findNeighborhood(Point3D center, List<Point3D> list, double distance, double accuracy) {
+        int iterations = 10;
         Neighborhood neighborhood = findNeighborPoints(center, list, distance);
         if (neighborhood.getNeighbors().size() < 3) {
             return null;
@@ -37,7 +39,7 @@ public class Segmentation {
             return null;
         }
         neighborhood.setPlane(plane);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 1; i <= iterations; i++) {
             HashMap<Point3D, Double> weights = findWeight(neighborhood, accuracy);
             Plane planeNew = findPlaneWithWeights(weights);
             if (planeNew == null) {
@@ -50,7 +52,11 @@ public class Segmentation {
                 neighborhood.setPlane(planeNew);
                 break;
             }
+            if (i == iterations) {
+                return null;
+            }
         }
+
         ArrayList<Point3D> result = new ArrayList<>();
         for (Point3D point : neighborhood.getNeighbors()) {
             if ((accuracy * 2) >= dist(point, plane)) {
@@ -221,12 +227,12 @@ public class Segmentation {
 
     public static HashMap<Neighborhood, Point2D> findAttributes(Point3D origin1, Point3D origin2, ArrayList<Neighborhood> neighborhoodList) {
         HashMap<Neighborhood, Point2D> attributeList = new HashMap<>();
-        neighborhoodList.forEach((neighborhood) -> {
+        for (Neighborhood neighborhood : neighborhoodList) {
             Plane plane = neighborhood.getPlane();
             double x = dist(origin1, plane);
             double y = dist(origin2, plane);
             attributeList.put(neighborhood, new Point2D(x, y));
-        });
+        }
         return attributeList;
     }
 
@@ -255,18 +261,21 @@ public class Segmentation {
         return accumulatorArray;
     }
 
-    public static HashMap.Entry<Point2D, ArrayList<Neighborhood>> findTopPeak(HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray) {
+    public static TopPeak findTopPeak(HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray) {
         int count = 0;
-        HashMap.Entry<Point2D, ArrayList<Neighborhood>> topPeak = null;
+        Point2D peak = null;
         for (HashMap.Entry<Point2D, ArrayList<Neighborhood>> entry : accumulatorArray.entrySet()) {
-            int currentCount = 0;
-            currentCount = entry.getValue().stream().map((neighborhood) -> neighborhood.getNeighbors().size()).reduce(currentCount, Integer::sum);
-            if (currentCount > count) {
-                count = currentCount;
-                topPeak = entry;
+            ArrayList<Point3D> points = new ArrayList<>();
+            for (Neighborhood neighborhood : entry.getValue()) {
+                points.addAll(neighborhood.getNeighbors());
+            }
+            removeDuplicates(points);
+            if (points.size() > count) {
+                count = points.size();
+                peak = entry.getKey();
             }
         }
-        return topPeak;
+        return new TopPeak(peak, count);
     }
 
     public static boolean coPlanarityCheck(ArrayList<Neighborhood> neighborhoodList, double accuracy) {
@@ -349,7 +358,7 @@ public class Segmentation {
         ArrayList<Neighborhood> neighborhoodList = new ArrayList<>();
 
         for (int i = 0; i < pointList.size(); i++) {
-            Neighborhood neighborhood = findNeighborhood(pointList.get(i), pointList /*pointList.subList(i, pointList.size())*/, distance, accuracy);
+            Neighborhood neighborhood = findNeighborhood(pointList.get(i), pointList, distance, accuracy);
             if (neighborhood != null) {
                 neighborhoodList.add(neighborhood);
             }
@@ -379,44 +388,48 @@ public class Segmentation {
         ArrayList<ArrayList<Point3D>> recorded = new ArrayList<>();
         int peakCount = Integer.MAX_VALUE;
         while (peakCount >= threshold) {
-            HashMap.Entry<Point2D, ArrayList<Neighborhood>> peak = findTopPeak(accumulatorArray);
-            //System.out.println(peak.toString());
-            peakCount = 0;
-            peakCount = peak.getValue().stream().map((value) -> value.getNeighbors().size()).reduce(peakCount, Integer::sum);
+            TopPeak peak = findTopPeak(accumulatorArray);
+            peakCount = peak.getCount();
             System.out.println(peakCount);
             if (peakCount >= threshold) {
-                if (coPlanarityCheck(peak.getValue(), accuracy)) {
-                    recorded.add(clustering(accumulatorArray, peak, accuracy));
-                    accumulatorArray.remove(peak.getKey());
+                if (coPlanarityCheck(accumulatorArray.get(peak.getPeak()), accuracy)) {
+                    recorded.add(clustering(accumulatorArray, peak.getPeak(), accumulatorArray.get(peak.getPeak()), accuracy));
+                    /*accumulatorArray.remove(peak.getKey());*/
                 } else {
                     moveOrigins(origin1, origin2, peak, accuracy, min, max, threshold, accumulatorArray, recorded);
+                    /*accumulatorArray.remove(peak.getKey());*/
                 }
             }
         }
         return recorded;
     }
 
-    public static void moveOrigins(Point3D origin1, Point3D origin2, Map.Entry<Point2D, ArrayList<Neighborhood>> peak, double accuracy, Point3D min, Point3D max, int threshold, HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray, ArrayList<ArrayList<Point3D>> recorded) {
+    public static void moveOrigins(Point3D origin1, Point3D origin2, TopPeak peak, double accuracy, Point3D min, Point3D max, int threshold, HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray, ArrayList<ArrayList<Point3D>> recorded) {
         Random r = new Random();
         double range = 2;
-        Point3D originNew1 = origin1.add(r.nextDouble() * range, r.nextDouble() * range, r.nextDouble() * range);
-        Point3D originNew2 = origin2.add(r.nextDouble() * range, r.nextDouble() * range, r.nextDouble() * range);
+        HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArrayNew = accumulatorArray;
+        TopPeak peakNew = peak;
 
-        HashMap<Neighborhood, Point2D> attributeListNew = findAttributes(originNew1, originNew2, peak.getValue());
-        HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArrayNew = setAccumulatorArray(attributeListNew, accuracy, 2 * Ops.distance(min, max) / 3);
-        int peakCountNew = Integer.MAX_VALUE;
-        while (peakCountNew > threshold && !accumulatorArrayNew.isEmpty()) {
-            HashMap.Entry<Point2D, ArrayList<Neighborhood>> peakNew = findTopPeak(accumulatorArrayNew);
-            peakCountNew = peakNew.getValue().stream().map((value) -> value.getNeighbors().size()).reduce(peakCountNew, Integer::sum);
-            if (peakCountNew > threshold) {
-                recorded.add(clustering(accumulatorArray, peakNew, accuracy));
+        for (int i = 0; i < 5; i++) {
+            Point3D originNew1 = origin1.add(r.nextDouble() * range, r.nextDouble() * range, r.nextDouble() * range);
+            Point3D originNew2 = origin2.add(r.nextDouble() * range, r.nextDouble() * range, r.nextDouble() * range);
+
+            HashMap<Neighborhood, Point2D> attributeListNew = findAttributes(originNew1, originNew2, accumulatorArrayNew.get(peakNew.getPeak()));
+            accumulatorArrayNew = setAccumulatorArray(attributeListNew, accuracy, 2 * Ops.distance(min, max) / 3);
+            peakNew = findTopPeak(accumulatorArrayNew);
+
+            if (coPlanarityCheck(accumulatorArrayNew.get(peakNew.getPeak()), accuracy)) {
+                int peakCountNew = peak.getCount();
+                if (peakCountNew > threshold) {
+                    recorded.add(clustering(accumulatorArray, peak.getPeak(), accumulatorArrayNew.get(peakNew.getPeak()), accuracy));
+                }
+                break;
             }
-            accumulatorArrayNew.remove(peakNew.getKey());
         }
-        accumulatorArray.remove(peak.getKey());
+        accumulatorArray.remove(peak.getPeak());
     }
 
-    public static ArrayList<Point3D> clustering(HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray, Map.Entry<Point2D, ArrayList<Neighborhood>> peak, double accuracy) {
+    public static ArrayList<Point3D> clustering(HashMap<Point2D, ArrayList<Neighborhood>> accumulatorArray, Point2D peakKey, ArrayList<Neighborhood> peakValue, double accuracy) {
         int k = 0;
         ArrayList<Point3D> cluster = new ArrayList<>();
 
@@ -424,20 +437,21 @@ public class Segmentation {
         toAdd.add(Point3D.ZERO);
 
         ArrayList<Point3D> peakPoints = new ArrayList<>();
-        for (Neighborhood neighborhood : peak.getValue()) {
+        for (Neighborhood neighborhood : peakValue) {
             peakPoints.addAll(neighborhood.getNeighbors());
+            neighborhood.getNeighbors().removeAll(peakPoints);
         }
-        peakPoints = removeDuplicates(peakPoints);
+        removeDuplicates(peakPoints);
 
         while (toAdd.size() > 0) {
             System.out.print("/");
             k++;
             ArrayList<Point3D> neighboringPoints = new ArrayList<>();
             toAdd.clear();
-            for (double i = peak.getKey().getX() - (accuracy * k); i <= peak.getKey().getX() + (accuracy * k); i = i + accuracy) {
-                for (double j = peak.getKey().getY() - (accuracy * k); j <= peak.getKey().getY() + (accuracy * k); j = j + accuracy) {
+            for (double i = peakKey.getX() - (accuracy * k); i <= peakKey.getX() + (accuracy * k); i = i + accuracy) {
+                for (double j = peakKey.getY() - (accuracy * k); j <= peakKey.getY() + (accuracy * k); j = j + accuracy) {
                     Point2D cell = new Point2D(i, j);
-                    if (accumulatorArray.containsKey(cell) && !cell.equals(peak.getKey())) {
+                    if (accumulatorArray.containsKey(cell)) {
                         for (Neighborhood neighborhood : accumulatorArray.get(cell)) {
                             neighboringPoints.addAll(neighborhood.getNeighbors());
                         }
@@ -445,7 +459,7 @@ public class Segmentation {
                 }
             }
 
-            neighboringPoints = removeDuplicates(neighboringPoints);
+            removeDuplicates(neighboringPoints);
             ArrayList<Point3D> eligible = new ArrayList<>();
 
             for (Point3D point : neighboringPoints) {
@@ -464,31 +478,33 @@ public class Segmentation {
                 }
             }
 
-            for (double i = peak.getKey().getX() - (accuracy * k); i <= peak.getKey().getX() + (accuracy * k); i = i + accuracy) {
-                for (double j = peak.getKey().getY() - (accuracy * k); j <= peak.getKey().getY() + (accuracy * k); j = j + accuracy) {
+            for (double i = peakKey.getX() - (accuracy * k); i <= peakKey.getX() + (accuracy * k); i = i + accuracy) {
+                for (double j = peakKey.getY() - (accuracy * k); j <= peakKey.getY() + (accuracy * k); j = j + accuracy) {
                     Point2D cell = new Point2D(i, j);
-                    if (accumulatorArray.containsKey(cell) && !cell.equals(peak.getKey())) {
+                    if (accumulatorArray.containsKey(cell) && !cell.equals(peakKey)) {
                         for (Neighborhood neighborhood : accumulatorArray.get(cell)) {
                             neighborhood.getNeighbors().removeAll(toAdd);
                         }
                     }
                 }
             }
+            /*accumulatorArray.values().forEach((neighborhoods) -> {
+                neighborhoods.forEach((neighborhood) -> {
+                    neighborhood.getNeighbors().removeAll(toAdd);
+                });
+            });*/
             cluster.addAll(toAdd);
         }
-
         System.out.println("");
-        cluster = removeDuplicates(cluster);
         cluster.addAll(peakPoints);
-
+        removeDuplicates(cluster);
         return cluster;
     }
 
-    public static ArrayList<Point3D> removeDuplicates(ArrayList<Point3D> neighboringPoints) {
-        ArrayList<Point3D> result = new ArrayList<>();
+    public static void removeDuplicates(ArrayList<Point3D> neighboringPoints) {
         HashSet temp = new HashSet<>();
         temp.addAll(neighboringPoints);
-        result.addAll(temp);
-        return result;
+        neighboringPoints.clear();
+        neighboringPoints.addAll(temp);
     }
 }

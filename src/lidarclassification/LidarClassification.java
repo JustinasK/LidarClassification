@@ -260,12 +260,12 @@ public class LidarClassification extends Application {
     private void buildPoints() throws FileNotFoundException, IOException {
 
         String path = "C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test3.txt";
-        ArrayList<ArrayList<Point3D>> pointList = Segmentation.findPoints(0.4, 0.1, 2000, path);
+        ArrayList<ArrayList<Point3D>> pointList = Segmentation.findPoints(0.2, 0.02, 6000, path);
 
         for (int i = 0; i < pointList.size(); i++) {
             PhongMaterial material = new PhongMaterial();
-            material.setDiffuseColor(Color.rgb((i * 31) % 230, (i * 23) % 230, (i * 17) % 230));
-            material.setSpecularColor(Color.rgb((i * 31) % 230, (i * 23) % 230, (i * 17) % 230));
+            material.setDiffuseColor(Color.rgb((i * 33) % 230, (i * 17) % 230, (i * 7) % 230));
+            material.setSpecularColor(Color.rgb((i * 33) % 230, (i * 17) % 230, (i * 7) % 230));
             for (Point3D point : pointList.get(i)) {
                 Sphere sphere = new Sphere(0.01);
                 sphere.setMaterial(material);
