@@ -224,8 +224,8 @@ public class LidarClassification extends Application {
         camera.setNearClip(0.1);
         camera.setFarClip(10000.0);
         camera.setTranslateZ(-cameraDistance);
-        cameraXform.setTranslateX(-17.5);
-        cameraXform.setTranslateY(-20);
+        cameraXform.setTranslateX(-30);
+        cameraXform.setTranslateY(-50);
         cameraXform.rz.setAngle(0);
         cameraXform.ry.setAngle(0);
         cameraXform.rx.setAngle(115);
@@ -259,15 +259,15 @@ public class LidarClassification extends Application {
 
     private void buildPoints() throws FileNotFoundException, IOException {
 
-        String path = "C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test3.txt";
-        ArrayList<ArrayList<Point3D>> pointList = Segmentation.findPoints(0.2, 0.02, 6000, path);
+        String path = "C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test4.txt";
+        ArrayList<ArrayList<Point3D>> pointList = Segmentation.findPoints(0.2, 0.05, 250, path);
 
         for (int i = 0; i < pointList.size(); i++) {
             PhongMaterial material = new PhongMaterial();
-            material.setDiffuseColor(Color.rgb((i * 33) % 230, (i * 17) % 230, (i * 7) % 230));
-            material.setSpecularColor(Color.rgb((i * 33) % 230, (i * 17) % 230, (i * 7) % 230));
+            material.setDiffuseColor(Color.rgb((i * 10) % 240, (i * 30) % 240, (i * 20) % 240));
+            material.setSpecularColor(Color.rgb((i * 10) % 240, (i * 30) % 240, (i * 20) % 240));
             for (Point3D point : pointList.get(i)) {
-                Sphere sphere = new Sphere(0.01);
+                Sphere sphere = new Sphere(0.025);
                 sphere.setMaterial(material);
                 sphere.setTranslateX(point.getX());
                 sphere.setTranslateY(point.getY());
@@ -286,7 +286,7 @@ public class LidarClassification extends Application {
         buildPoints();
 
         Scene scene = new Scene(root, 1024, 768, true);
-        scene.setFill(Color.GRAY);
+        scene.setFill(Color.WHITE);
         handleKeyboard(scene, world);
         handleMouse(scene, world);
 
