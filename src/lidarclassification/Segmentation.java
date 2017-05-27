@@ -279,9 +279,9 @@ public class Segmentation {
         attributeList.forEach((entry) -> {
             double pointX = entry.getAttribute().getX();
             double pointY = entry.getAttribute().getY();
-            for (double i = Math.floor(pointX - 1.0); i <= Math.ceil(pointX + 1.0); i = i + (acc * 2)) {
+            for (double i = 0; i <= Math.ceil(pointX + 1.0); i += acc * 2) {
                 if (pointX >= i && pointX < i + acc * 2) {
-                    for (double j = Math.floor(pointY - 1.0); j < Math.ceil(pointY + 1.0); j = j + (acc * 2)) {
+                    for (double j = 0; j < Math.ceil(pointY + 1.0); j+= acc * 2) {
                         if (pointY >= j && pointY < j + acc * 2) {
                             Point2D currentPoint = new Point2D(i, j);
                             if (!accumulatorArray.containsKey(currentPoint)) {
@@ -373,7 +373,7 @@ public class Segmentation {
         return new Point3D(maxX, maxY, maxZ);
     }
 
-    private static ArrayList<Point3D> readPointsFromFile(String path) throws FileNotFoundException, IOException {
+    public static ArrayList<Point3D> readPointsFromFile(String path) throws FileNotFoundException, IOException {
         File file = new File(path);
         BufferedReader fr = new BufferedReader(new FileReader(file));
         ArrayList<Point3D> array = new ArrayList<>();
@@ -388,7 +388,7 @@ public class Segmentation {
         return array;
     }
 
-    public static ArrayList<ArrayList<Point3D>> findPoints(double distance, double accuracy, int threshold, String path) throws FileNotFoundException, IOException {
+    public static HashMap<ArrayList<Point3D>, Plane> findPoints(double distance, double accuracy, double proximity, int threshold, String path) throws FileNotFoundException, IOException {
 
         ArrayList<Point3D> pointList = readPointsFromFile(path);
         ArrayList<Neighborhood> neighborhoodList = new ArrayList<>();
@@ -421,7 +421,7 @@ public class Segmentation {
             System.out.println("key: " + k.toString() + " value:" + v.toString());
         });*/
 
-        ArrayList<ArrayList<Point3D>> recorded = new ArrayList<>();
+        HashMap<ArrayList<Point3D>, Plane> recorded = new HashMap<>();
         int peakCount = Integer.MAX_VALUE;
         while (peakCount > threshold) {
             TopPeak peak = findTopPeak(accumulatorArray);
@@ -429,10 +429,11 @@ public class Segmentation {
             System.out.println(peakCount);
             if (peakCount > threshold) {
                 if (coPlanarityCheck(accumulatorArray.get(peak.getPeak()), accuracy)) {
-                    recorded.add(findCluster(accumulatorArray, peak.getPeak(), accumulatorArray.get(peak.getPeak()), accuracy));
+                    ArrayList<Point3D> cluster = findCluster(accumulatorArray, peak.getPeak(), accumulatorArray.get(peak.getPeak()), accuracy, proximity);
+                    recorded.put(cluster, findPlane(cluster));
                     /*accumulatorArray.remove(peak.getKey());*/
                 } else {
-                    moveOrigins(origin1, origin2, peak, accuracy, distance, min, max, threshold, accumulatorArray, recorded);
+                    moveOrigins(origin1, origin2, peak, accuracy, proximity, distance, min, max, threshold, accumulatorArray, recorded);
                     /*accumulatorArray.remove(peak.getKey());*/
                 }
             }
@@ -440,7 +441,7 @@ public class Segmentation {
         return recorded;
     }
 
-    public static void moveOrigins(Point3D origin1, Point3D origin2, TopPeak peak, double accuracy, double distance, Point3D min, Point3D max, int threshold, HashMap<Point2D, ArrayList<Point3D>> accumulatorArray, ArrayList<ArrayList<Point3D>> recorded) {
+    public static void moveOrigins(Point3D origin1, Point3D origin2, TopPeak peak, double accuracy, double proximity, double distance, Point3D min, Point3D max, int threshold, HashMap<Point2D, ArrayList<Point3D>> accumulatorArray, HashMap<ArrayList<Point3D>, Plane> recorded) {
         System.out.print(">");
         Random r = new Random();
         double range = 5;
@@ -467,7 +468,8 @@ public class Segmentation {
             if (coPlanarityCheck(accumulatorArrayNew.get(peakNew.getPeak()), accuracy)) {
                 int peakCountNew = peak.getCount();
                 if (peakCountNew > threshold) {
-                    recorded.add(findCluster(accumulatorArray, peak.getPeak(), accumulatorArrayNew.get(peakNew.getPeak()), accuracy));
+                    ArrayList<Point3D> cluster = findCluster(accumulatorArray, peak.getPeak(), accumulatorArrayNew.get(peakNew.getPeak()), accuracy, proximity);
+                    recorded.put(cluster, findPlane(cluster));
                 }
                 break;
             }
@@ -477,7 +479,7 @@ public class Segmentation {
         }
     }
 
-    public static ArrayList<Point3D> findCluster(HashMap<Point2D, ArrayList<Point3D>> accumulatorArray, Point2D peakKey, ArrayList<Point3D> peakValue, double accuracy) {
+    public static ArrayList<Point3D> findCluster(HashMap<Point2D, ArrayList<Point3D>> accumulatorArray, Point2D peakKey, ArrayList<Point3D> peakValue, double accuracy, double proximity) {
         int k = 0;
         ArrayList<Point3D> cluster = new ArrayList<>();
 
@@ -510,7 +512,7 @@ public class Segmentation {
 
             for (Point3D point : neighboringPoints) {
                 for (Point3D peakPoint : peakPoints) {
-                    if (point.distance(peakPoint) < accuracy * 2) {
+                    if (point.distance(peakPoint) < proximity * 2) {
                         eligible.add(point);
                         break;
                     }

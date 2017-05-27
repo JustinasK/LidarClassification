@@ -7,7 +7,9 @@ package lidarclassification;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -27,6 +29,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 import javafx.scene.Node;
+import lidarclassification.classes.Plane;
 
 /**
  *
@@ -224,7 +227,7 @@ public class LidarClassification extends Application {
         camera.setNearClip(0.1);
         camera.setFarClip(10000.0);
         camera.setTranslateZ(-cameraDistance);
-        cameraXform.setTranslateX(-30);
+        cameraXform.setTranslateX(-27.5);
         cameraXform.setTranslateY(-50);
         cameraXform.rz.setAngle(0);
         cameraXform.ry.setAngle(0);
@@ -260,13 +263,21 @@ public class LidarClassification extends Application {
     private void buildPoints() throws FileNotFoundException, IOException {
 
         String path = "C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test4.txt";
-        ArrayList<ArrayList<Point3D>> pointList = Segmentation.findPoints(0.2, 0.05, 250, path);
+        
+        long startTime = System.currentTimeMillis();
+        HashMap<ArrayList<Point3D>, Plane> pointList = Segmentation.findPoints(0.2, 0.025, 0.02, 500, path);
+        long estimatedTime = System.currentTimeMillis() - startTime;
+        System.out.println(estimatedTime / 60000 + ":" + (estimatedTime / 1000) % 60);
 
-        for (int i = 0; i < pointList.size(); i++) {
+        for (HashMap.Entry<ArrayList<Point3D>, Plane> entry : pointList.entrySet()) {
+            Point3D vector = entry.getValue().getVector();
             PhongMaterial material = new PhongMaterial();
-            material.setDiffuseColor(Color.rgb((i * 10) % 240, (i * 30) % 240, (i * 20) % 240));
-            material.setSpecularColor(Color.rgb((i * 10) % 240, (i * 30) % 240, (i * 20) % 240));
-            for (Point3D point : pointList.get(i)) {
+            int r = (int) Math.round(vector.getX() * 127) + 128;
+            int g = (int) Math.round(vector.getY() * 127) + 128;
+            int b = (int) Math.round(vector.getZ() * 127) + 128;
+            material.setDiffuseColor(Color.rgb(r, g, b));
+            material.setSpecularColor(Color.rgb(r, g, b));
+            for (Point3D point : entry.getKey()) {
                 Sphere sphere = new Sphere(0.025);
                 sphere.setMaterial(material);
                 sphere.setTranslateX(point.getX());
