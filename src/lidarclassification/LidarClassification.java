@@ -262,9 +262,11 @@ public class LidarClassification extends Application {
 
     private void buildPoints() throws FileNotFoundException, IOException {
 
+        //Filepath to the file with point data
         String path = "C:\\Users\\user\\Documents\\NetBeansProjects\\LidarClassification\\src\\lidarclassification\\resources\\test4.txt";
         
         long startTime = System.currentTimeMillis();
+        //Find the map of all the point segments (distance, accuracy, proximity, threshold, path)
         HashMap<ArrayList<Point3D>, Plane> pointList = Segmentation.findPoints(0.2, 0.025, 0.02, 500, path);
         long estimatedTime = System.currentTimeMillis() - startTime;
         System.out.println(estimatedTime / 60000 + ":" + (estimatedTime / 1000) % 60);
